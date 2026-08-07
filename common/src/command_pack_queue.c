@@ -20,30 +20,49 @@
 void packet_queue_init(packet_queue *q)
 {
     /* 在此实现 */
+    q->head = 0U;
+    q->tail = 0U;
+    q->count = 0U;
 }
 
 /* TODO: 入队，成功返回 true，队列满返回 false */
 bool packet_queue_push(packet_queue *q, const command_packet *pkt)
 {
     /* 在此实现 */
+    if (packet_queue_is_full(q)){
+        return false;
+    }
+    q->buf[q->tail] = *pkt;
+    q->tail = (q->tail + 1U) % PACKET_QUEUE_SIZE;
+    q->count++;
+    return true ;
 }
 
 /* TODO: 出队，将数据写入 *pkt，成功返回 true，队列空返回 false */
 bool packet_queue_pop(packet_queue *q, command_packet *pkt)
 {
     /* 在此实现 */
+    if (packet_queue_is_empty(q)){
+        return false;
+    }
+    q->buf[q->head] = *pkt;
+    q->head = (q->head + 1U) % PACKET_QUEUE_SIZE;
+    q->count--;
+    return false;
 }
 
 /* TODO: 判空 */
 bool packet_queue_is_empty(const packet_queue *q)
 {
     /* 在此实现 */
+    return (q->count == 0U);
 }
 
 /* TODO: 判满 */
 bool packet_queue_is_full(const packet_queue *q)
 {
     /* 在此实现 */
+    return (q->count == PACKET_QUEUE_SIZE);
 }
 
 /* ================================================================
