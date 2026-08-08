@@ -75,6 +75,9 @@ static void state_alarm_run(void){
 }
 
 void state_machine_run (void){
-    state_table[current_state]();
+    if (current_state < STATE_COUNT && state_table[current_state] != NULL)
+    {
+        state_table[current_state]();
+    }//边界检查
 }
 

@@ -139,14 +139,19 @@ bool command_pack_unpack(const command_packet *pkt, uint8_t *blink_count, uint8_
  */
 void command_led_execute(uint8_t blink_count, uint8_t led_mask)
 {
+    /*做个查找表增加一下可读性和可维护性*/
+    static const uint16_t led_pin_table[4] = { LED1_PIN, LED2_PIN, LED3_PIN, LED4_PIN };
+
     uint8_t count    = blink_count;
     uint8_t pin_mask = 0U;
 
-    /* 协议掩码(bit0~3) -> 实际 GPIO 引脚(PB3~PB6) */
-    if (led_mask & LED_MASK_LED1) pin_mask |= LED1_PIN;
-    if (led_mask & LED_MASK_LED2) pin_mask |= LED2_PIN;
-    if (led_mask & LED_MASK_LED3) pin_mask |= LED3_PIN;
-    if (led_mask & LED_MASK_LED4) pin_mask |= LED4_PIN;
+    for (uint8_t i = 0U; i < 4U; i++)
+    {
+        if (led_mask & (1U << i))
+        {
+            pin_mask |= led_pin_table[i];
+        }
+    }
 
     for (uint8_t i = 0U; i < count; i++)
     {
