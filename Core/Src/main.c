@@ -25,6 +25,7 @@
 #include "led.h"
 #include "buzzer.h"
 #include "command_pack_queue.h"
+#include "state_machine.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -101,7 +102,7 @@ int main(void)
   packet_queue_init(&cmd_queue);
 
   command_packet test_pkt;
-  command_pack_create(&test_pkt, 0x07, LED3_PIN);
+  command_pack_create(&test_pkt, 3U, LED_MASK_LED1 | LED_MASK_LED2);  /* LED1、LED2 闪 3 次 */
   packet_queue_push(&cmd_queue, &test_pkt);
   /* USER CODE END 2 */
 
@@ -110,17 +111,20 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+    
+
+    /* USER CODE BEGIN 3 */
     command_packet recv_pkt;
-    uint8_t cmd_high, cmd_low;
+    uint8_t blink_count, led_mask;
 
     if (packet_queue_pop(&cmd_queue, &recv_pkt))
     {
-        if (command_pack_unpack(&recv_pkt, &cmd_high, &cmd_low))
+        if (command_pack_unpack(&recv_pkt, &blink_count, &led_mask))
         {
-            command_led_execute(cmd_high, cmd_low);
+            command_led_execute(blink_count, led_mask);
         }
     }    
-    /* USER CODE BEGIN 3 */
+    state_machine_run();
   }
   /* USER CODE END 3 */
 }

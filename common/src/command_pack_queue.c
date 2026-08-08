@@ -80,24 +80,17 @@ bool packet_queue_is_full(const packet_queue *q)
  */
 
 /* TODO: 用位运算完成封包，并填入校验和 */
-void command_pack_create(command_packet *pkt, uint8_t cmd_high, uint8_t cmd_low)
+void command_pack_create(command_packet *pkt, uint8_t blink_count, uint8_t led_mask)
 {
-    /* 在此实现 */
-    /* 两个 0xA5 拼好段 */
-    uint16_t header_word = ((uint16_t)HEADER_BYTE << 8) | HEADER_BYTE;
+    /* 帧头 */
+    pkt->header[0] = HEADER_HIGH_BYTE;
+    pkt->header[1] = HEADER_LOW_BYTE;
 
-    /* cmd的合并 */
-    uint16_t cmd_word = ((uint16_t)cmd_high << 8) | cmd_low;
-
-    /* 把 16 位字拆回字节填入结构体 */
-    pkt->header[0] = (uint8_t)(header_word >> 8);
-    pkt->header[1] = (uint8_t)header_word;
-    pkt->cmd[0]    = (uint8_t)(cmd_word >> 8);
-    pkt->cmd[1]    = (uint8_t)cmd_word;
+    /* 高4位是闪烁次数，低4位是LED 掩码*/
+    pkt->cmd = (uint8_t)((blink_count << CMD_BLINK_SHIFT) | (led_mask & CMD_LED_MASK));
 
     /* 校验和 */
-    pkt->checksum = PACKET_CHECKSUM(HEADER_BYTE, HEADER_BYTE, cmd_high, cmd_low);
-
+    pkt->checksum = PACKET_CHECKSUM(pkt->header[0], pkt->header[1], pkt->cmd);
 }
 
 /* ================================================================
@@ -115,17 +108,26 @@ void command_pack_create(command_packet *pkt, uint8_t cmd_high, uint8_t cmd_low)
  */
 
 /* TODO: 用位运算校验包头和校验和，解出 cmd_high / cmd_low */
-bool command_pack_unpack(const command_packet *pkt, uint8_t *cmd_high, uint8_t *cmd_low)
+bool command_pack_unpack(const command_packet *pkt, uint8_t *blink_count, uint8_t *led_mask)
 {
-    /* 在此实现 */
-    uint16_t header_word = ((uint16_t)pkt->header[0]<<8) | pkt->header[1];
-    uint8_t checksum = PACKET_CHECKSUM(pkt->header[0],pkt->header[1],pkt->cmd[0],pkt->cmd[1]);
-    if ((header_word == 0xA5A5) && (checksum == pkt->checksum)){
-        *cmd_high = pkt->cmd[0];
-        *cmd_low = pkt->cmd[1];
-        return true;
+    /* 1. 包头校验 */
+    uint16_t header_word = ((uint16_t)pkt->header[0] << 8) | pkt->header[1];
+    if (header_word != HEADER_WORD)
+    {
+        return false;
     }
-    else return false;
+
+    /* 2. 校验和校验（3 字节） */
+    if (pkt->checksum != PACKET_CHECKSUM(pkt->header[0], pkt->header[1], pkt->cmd))
+    {
+        return false;
+    }
+
+    /* 3. 移位 + 掩码解出命令 */
+    *blink_count = (uint8_t)(pkt->cmd >> CMD_BLINK_SHIFT);
+    *led_mask    = (uint8_t)(pkt->cmd & CMD_LED_MASK);
+
+    return true;
 }
 
 /* ================================================================
@@ -135,16 +137,22 @@ bool command_pack_unpack(const command_packet *pkt, uint8_t *cmd_high, uint8_t *
  *   cmd_high：闪烁次数
  *   cmd_low：LED 引脚掩码
  */
-void command_led_execute(uint8_t cmd_high, uint8_t cmd_low)
+void command_led_execute(uint8_t blink_count, uint8_t led_mask)
 {
-    uint8_t count = cmd_high;
-    uint8_t mask  = cmd_low;
+    uint8_t count    = blink_count;
+    uint8_t pin_mask = 0U;
+
+    /* 协议掩码(bit0~3) -> 实际 GPIO 引脚(PB3~PB6) */
+    if (led_mask & LED_MASK_LED1) pin_mask |= LED1_PIN;
+    if (led_mask & LED_MASK_LED2) pin_mask |= LED2_PIN;
+    if (led_mask & LED_MASK_LED3) pin_mask |= LED3_PIN;
+    if (led_mask & LED_MASK_LED4) pin_mask |= LED4_PIN;
 
     for (uint8_t i = 0U; i < count; i++)
     {
-        led_on(mask);
+        led_on(pin_mask);
         HAL_Delay(200U);
-        led_off(mask);
+        led_off(pin_mask);
         HAL_Delay(200U);
     }
 }
