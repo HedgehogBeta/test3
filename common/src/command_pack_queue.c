@@ -45,10 +45,10 @@ bool packet_queue_pop(packet_queue *q, command_packet *pkt)
     if (packet_queue_is_empty(q)){
         return false;
     }
-    q->buf[q->head] = *pkt;
+    *pkt = q->buf[q->head];
     q->head = (q->head + 1U) % PACKET_QUEUE_SIZE;
     q->count--;
-    return false;
+    return true;
 }
 
 /* TODO: 判空 */
@@ -83,6 +83,21 @@ bool packet_queue_is_full(const packet_queue *q)
 void command_pack_create(command_packet *pkt, uint8_t cmd_high, uint8_t cmd_low)
 {
     /* 在此实现 */
+    /* 两个 0xA5 拼好段 */
+    uint16_t header_word = ((uint16_t)HEADER_BYTE << 8) | HEADER_BYTE;
+
+    /* cmd的合并 */
+    uint16_t cmd_word = ((uint16_t)cmd_high << 8) | cmd_low;
+
+    /* 把 16 位字拆回字节填入结构体 */
+    pkt->header[0] = (uint8_t)(header_word >> 8);
+    pkt->header[1] = (uint8_t)header_word;
+    pkt->cmd[0]    = (uint8_t)(cmd_word >> 8);
+    pkt->cmd[1]    = (uint8_t)cmd_word;
+
+    /* 校验和 */
+    pkt->checksum = PACKET_CHECKSUM(HEADER_BYTE, HEADER_BYTE, cmd_high, cmd_low);
+
 }
 
 /* ================================================================
@@ -93,7 +108,7 @@ void command_pack_create(command_packet *pkt, uint8_t cmd_high, uint8_t cmd_low)
  * 要求：
  *   1. 用位运算将两个 header 字节拼成 uint16_t 与 0xA5A5 比较；
  *   2. 用 PACKET_CHECKSUM 宏重新计算校验和并与 pkt->checksum 比较；
- *   3. 校验通过则将 cmd_high / cmd_low 写入输出参数，返回 true；
+ *   3. 校验通过则“将 cmd_high / cmd_low 写入输出参数”，返回 true；
  *      任意一项校验失败返回 false。
  *
  * 提示：uint16_t header_word = ((uint16_t)header[0] << 8) | header[1];
@@ -103,6 +118,14 @@ void command_pack_create(command_packet *pkt, uint8_t cmd_high, uint8_t cmd_low)
 bool command_pack_unpack(const command_packet *pkt, uint8_t *cmd_high, uint8_t *cmd_low)
 {
     /* 在此实现 */
+    uint16_t header_word = ((uint16_t)pkt->header[0]<<8) | pkt->header[1];
+    uint8_t checksum = PACKET_CHECKSUM(pkt->header[0],pkt->header[1],pkt->cmd[0],pkt->cmd[1]);
+    if ((header_word == 0xA5A5) && (checksum == pkt->checksum)){
+        *cmd_high = pkt->cmd[0];
+        *cmd_low = pkt->cmd[1];
+        return true;
+    }
+    else return false;
 }
 
 /* ================================================================

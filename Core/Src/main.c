@@ -101,7 +101,7 @@ int main(void)
   packet_queue_init(&cmd_queue);
 
   command_packet test_pkt;
-  command_pack_create(&test_pkt, 0x03, LED1_PIN);
+  command_pack_create(&test_pkt, 0x07, LED3_PIN);
   packet_queue_push(&cmd_queue, &test_pkt);
   /* USER CODE END 2 */
 
@@ -110,7 +110,16 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+    command_packet recv_pkt;
+    uint8_t cmd_high, cmd_low;
 
+    if (packet_queue_pop(&cmd_queue, &recv_pkt))
+    {
+        if (command_pack_unpack(&recv_pkt, &cmd_high, &cmd_low))
+        {
+            command_led_execute(cmd_high, cmd_low);
+        }
+    }    
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
